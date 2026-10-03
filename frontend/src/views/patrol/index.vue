@@ -67,6 +67,48 @@
       <span>共 {{ total }} 条设备巡视记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
+
+    <section class="sub-panel">
+      <header class="sub-panel-head">
+        <div>
+          <h3>待整改清单</h3>
+          <p class="page-desc">清单由缺陷处置底稿直接派生：缺陷在处置页确认消除并填写处理结论后，这里自动回写为已整改，无需另录一份。</p>
+        </div>
+        <button class="btn" type="button" @click="reloadRectify">刷新整改情况</button>
+      </header>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>缺陷编号</th>
+            <th>缺陷设备</th>
+            <th>缺陷等级</th>
+            <th>整改期限</th>
+            <th>处理人</th>
+            <th>处理结论</th>
+            <th>处理情况</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in rectifyRows" :key="item.缺陷编号">
+            <td>{{ item.缺陷编号 }}</td>
+            <td>{{ item.缺陷设备 }}</td>
+            <td><span :class="['level-badge', levelClass(item.缺陷等级)]">{{ item.缺陷等级 }}</span></td>
+            <td>{{ item.整改期限 }}</td>
+            <td>{{ item.处理人 || '—' }}</td>
+            <td>{{ item.处理结论 || '—' }}</td>
+            <td>
+              <span :class="['tag', rectifyTagClass(item.处理情况)]">{{ item.处理情况 }}</span>
+            </td>
+          </tr>
+          <tr v-if="!rectifyRows.length">
+            <td colspan="7" class="empty-state">暂无巡视发现的缺陷整改项</td>
+          </tr>
+        </tbody>
+      </table>
+      <footer class="page-foot">
+        <span>共 {{ rectifyRows.length }} 项 · 待整改 {{ pendingRectifyCount }} 项 · 整改中 {{ doingRectifyCount }} 项 · 已整改 {{ doneRectifyCount }} 项</span>
+      </footer>
+    </section>
   </section>
 </template>
 
@@ -79,6 +121,7 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import { patrolRectifyList, type RectifyItem } from '@/data/defect'
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('patrol')
@@ -98,6 +141,42 @@ const statusSummary = computed(() =>
     count: rows.value.filter((row) => String(row.status) === status).length,
   })),
 )
+
+// 待整改清单与缺陷处置共用同一份底稿，刷新页面、消除缺陷后这里同步。
+const rectifyRows = ref<RectifyItem[]>([])
+const pendingRectifyCount = computed(
+  () => rectifyRows.value.filter((item) => item.处理情况 === '待整改').length,
+)
+const doingRectifyCount = computed(
+  () => rectifyRows.value.filter((item) => item.处理情况 === '整改中').length,
+)
+const doneRectifyCount = computed(
+  () => rectifyRows.value.filter((item) => item.处理情况 === '已整改').length,
+)
+
+function levelClass(level: string): string {
+  if (level === '危急缺陷') {
+    return 'level-critical'
+  }
+  if (level === '严重缺陷') {
+    return 'level-major'
+  }
+  return 'level-minor'
+}
+
+function rectifyTagClass(status: string): string {
+  if (status === '已整改') {
+    return 'tag-ok'
+  }
+  if (status === '整改中') {
+    return 'tag-warn'
+  }
+  return 'tag-danger'
+}
+
+function reloadRectify() {
+  rectifyRows.value = patrolRectifyList()
+}
 
 function resetFilters() {
   filters.value = {}
@@ -133,5 +212,8 @@ function reload() {
   }
 }
 
-onMounted(reload)
+onMounted(() => {
+  reload()
+  reloadRectify()
+})
 </script>
