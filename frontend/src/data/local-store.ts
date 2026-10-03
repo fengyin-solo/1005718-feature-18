@@ -54,6 +54,13 @@ export function resetRows(key: string): EntryRow[] {
   return rows
 }
 
+// 缺陷处置改用独立底稿：首次升级时把旧底稿里的 defect 记录取走交新底稿接管，之后这里恒为空，避免两边各存一份。
+export function takeLegacyDefectRows(): EntryRow[] {
+  const legacy = listRows('defect')
+  saveRows('defect', [])
+  return legacy
+}
+
 export function storageKey(): string {
   return STORAGE_KEY
 }
